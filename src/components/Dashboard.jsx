@@ -6,6 +6,109 @@ import WorkoutLogModal from './WorkoutLogModal'
 import StravaSync from './StravaSync'
 import AddPlanModal from './AddPlanModal'
 
+const STAT_CONFIG = {
+  workouts: { title: 'אימונים', filter: (l) => true },
+  distance: { title: 'מרחק', filter: (l) => l.distance > 0 },
+  duration: { title: 'זמן', filter: (l) => l.duration > 0 },
+}
+
+function StatsDetailModal({ logs, plan, statKey, dispatch, onClose }) {
+  const [confirmId, setConfirmId] = useState(null)
+  const config = STAT_CONFIG[statKey]
+  const filtered = logs.filter(config.filter)
+    .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
+
+  function workoutLabel(log) {
+    if (!plan || !log.workoutId) return null
+    for (const week of plan.weeks) {
+      const wo = week.workouts.find((w) => w.id === log.workoutId)
+      if (wo) return `שבוע ${week.week} — ${wo.label}`
+    }
+    return null
+  }
+
+  function deleteEntry(entry) {
+    if (entry._type === 'plan') {
+      dispatch({ type: 'DELETE_WORKOUT_LOG', id: entry.id })
+    } else {
+      dispatch({ type: 'DELETE_FREE_RUN', id: entry.id })
+    }
+    setConfirmId(null)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/40" onClick={onClose}>
+      <div
+        className="bg-white rounded-t-2xl max-h-[80vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-4 border-b border-gray-100">
+          <h2 className="font-bold text-gray-900">פירוט — {config.title}</h2>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-gray-400">{filtered.length} רשומות</span>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* List */}
+        <div className="overflow-y-auto flex-1 px-4 py-3 space-y-2">
+          {filtered.length === 0 && (
+            <div className="text-center text-gray-400 text-sm py-8">אין רשומות</div>
+          )}
+          {filtered.map((entry) => {
+            const isConfirming = confirmId === entry.id
+            const label = entry._type === 'plan' ? workoutLabel(entry) : (entry.title || 'ריצה חופשית')
+            const dateStr = entry.date
+              ? new Date(entry.date).toLocaleDateString('he-IL', { day: 'numeric', month: 'short', year: '2-digit' })
+              : '—'
+            return (
+              <div key={entry.id} className={`flex items-center gap-3 p-3 rounded-xl border text-sm transition-colors
+                ${isConfirming ? 'border-red-300 bg-red-50' : 'border-gray-100 bg-gray-50'}`}>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                      entry._type === 'plan' ? 'bg-indigo-100 text-indigo-700' : 'bg-teal-100 text-teal-700'
+                    }`}>
+                      {entry._type === 'plan' ? 'תכנית' : 'חופשי'}
+                    </span>
+                    {entry.stravaId && (
+                      <span className="text-[10px] font-semibold bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded-full">Strava</span>
+                    )}
+                    <span className="text-gray-400 text-xs">{dateStr}</span>
+                  </div>
+                  <div className="text-gray-800 font-medium mt-0.5 truncate">{label || '—'}</div>
+                  <div className="flex gap-3 text-xs text-gray-500 mt-0.5">
+                    {entry.distance > 0 && <span>{entry.distance} ק"מ</span>}
+                    {entry.duration > 0 && <span>{formatDuration(entry.duration)}</span>}
+                  </div>
+                </div>
+                {isConfirming ? (
+                  <div className="flex gap-2 flex-shrink-0">
+                    <button onClick={() => deleteEntry(entry)} className="text-xs font-bold text-white bg-red-500 px-3 py-1.5 rounded-lg hover:bg-red-600">מחק</button>
+                    <button onClick={() => setConfirmId(null)} className="text-xs text-gray-500 px-2 py-1.5 rounded-lg hover:bg-gray-200">ביטול</button>
+                  </div>
+                ) : (
+                  <button onClick={() => setConfirmId(entry.id)} className="flex-shrink-0 text-gray-300 hover:text-red-400 p-1">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function Countdown({ raceDate, raceLabel }) {
   const [timeLeft, setTimeLeft] = useState(calcTimeLeft())
 
@@ -147,11 +250,12 @@ function WorkoutRow({ workout, log, onLog }) {
 }
 
 export default function Dashboard({ setActiveTab }) {
-  const { state } = useApp()
+  const { state, dispatch } = useApp()
   const profile = useCurrentProfile()
   const plan = useProfilePlan(profile?.id)
   const [logTarget, setLogTarget] = useState(null)
   const [showAddPlan, setShowAddPlan] = useState(false)
+  const [statDetail, setStatDetail] = useState(null) // 'workouts' | 'distance' | 'duration'
 
   const planLogs = plan ? state.workoutLogs.filter((l) => l.planId === plan.id) : []
   const freeRunLogs = state.freeRuns.filter((r) => r.profileId === profile?.id)
@@ -186,18 +290,21 @@ export default function Dashboard({ setActiveTab }) {
 
       {/* Stats row */}
       <div className="grid grid-cols-3 gap-3">
-        <div className="card text-center py-3">
-          <div className="text-2xl font-extrabold text-indigo-600">{totalCompleted}</div>
-          <div className="text-xs text-gray-500 font-medium">אימונים</div>
-        </div>
-        <div className="card text-center py-3">
-          <div className="text-2xl font-extrabold text-purple-600">{totalDistance.toFixed(1)}</div>
-          <div className="text-xs text-gray-500 font-medium">ק"מ</div>
-        </div>
-        <div className="card text-center py-3">
-          <div className="text-2xl font-extrabold text-green-600">{toHours(totalDuration)}</div>
-          <div className="text-xs text-gray-500 font-medium">שעות</div>
-        </div>
+        {[
+          { key: 'workouts', value: totalCompleted, label: 'אימונים', color: 'text-indigo-600' },
+          { key: 'distance', value: totalDistance.toFixed(1), label: 'ק"מ', color: 'text-purple-600' },
+          { key: 'duration', value: toHours(totalDuration), label: 'שעות', color: 'text-green-600' },
+        ].map(({ key, value, label, color }) => (
+          <button
+            key={key}
+            onClick={() => setStatDetail(key)}
+            className="card text-center py-3 hover:border-indigo-200 hover:shadow-md transition-all active:scale-95"
+          >
+            <div className={`text-2xl font-extrabold ${color}`}>{value}</div>
+            <div className="text-xs text-gray-500 font-medium">{label}</div>
+            <div className="text-[10px] text-gray-300 mt-0.5">לפירוט לחצי ↗</div>
+          </button>
+        ))}
       </div>
 
       {/* Strava sync */}
@@ -273,6 +380,19 @@ export default function Dashboard({ setActiveTab }) {
 
       {showAddPlan && (
         <AddPlanModal profileId={profile?.id} onClose={() => setShowAddPlan(false)} />
+      )}
+
+      {statDetail && (
+        <StatsDetailModal
+          logs={allLogs.map((l) => ({
+            ...l,
+            _type: planLogs.includes(l) ? 'plan' : 'free',
+          }))}
+          plan={plan}
+          statKey={statDetail}
+          dispatch={dispatch}
+          onClose={() => setStatDetail(null)}
+        />
       )}
     </div>
   )
