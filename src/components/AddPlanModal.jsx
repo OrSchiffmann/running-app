@@ -69,7 +69,7 @@ export default function AddPlanModal({ profileId, replacePlanId, onClose }) {
       : generateEmptyWeeks(startDate, raceDate)
 
     const newPlan = {
-      id: generateId(),
+      id: replacePlanId || generateId(),
       createdAt: new Date().toISOString(),
       profileId,
       name: name.trim(),

@@ -271,25 +271,19 @@ async function syncToSupabase(action, userId, state) {
       const { oldPlanId, newPlan, preserveWeeks = 0 } = action
       const { data: oldLogs } = await supabase
         .from('workout_logs').select('id, week_num').eq('plan_id', oldPlanId)
-      const toMigrate = (oldLogs || []).filter((l) => l.week_num <= preserveWeeks)
       const toDelete = (oldLogs || []).filter((l) => l.week_num > preserveWeeks)
       if (toDelete.length) {
-        throwIfError(await supabase.from('workout_logs').delete().in('id', toDelete.map((l) => l.id)))
+        const delRes = await supabase.from('workout_logs').delete().in('id', toDelete.map((l) => l.id))
+        if (delRes.error) throw new Error('שלב 1 נכשל: ' + delRes.error.message)
       }
-      for (const log of toMigrate) {
-        throwIfError(await supabase.from('workout_logs').update({ plan_id: newPlan.id }).eq('id', log.id))
-      }
-      throwIfError(await supabase.from('plans').delete().eq('id', oldPlanId))
-      throwIfError(await supabase.from('plans').insert({
-        id: newPlan.id,
-        user_id: userId,
-        profile_id: newPlan.profileId,
+      const updRes = await supabase.from('plans').update({
         name: newPlan.name,
         race_date: newPlan.raceDate,
         race_label: newPlan.raceLabel,
         start_date: newPlan.startDate,
         weeks: newPlan.weeks,
-      }))
+      }).eq('id', oldPlanId)
+      if (updRes.error) throw new Error('שלב 2 נכשל: ' + updRes.error.message)
       break
     }
 
