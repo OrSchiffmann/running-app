@@ -1,19 +1,26 @@
 import React, { useState } from 'react'
 import { useApp } from '../context/AppContext'
-import { generateWeeksFromTemplate, generateWeeksFromTemplateV2, generateEmptyWeeks, trainingPlan, trainingPlanV2 } from '../data/trainingPlan'
+import { generateWeeksFromTemplate, generateWeeksFromTemplateV2, generateEmptyWeeks, trainingPlan, trainingPlanV2, getCurrentWeek } from '../data/trainingPlan'
 import { generateId } from '../utils/storage'
 
 const TEMPLATE_DEFAULT_START = '2026-06-14'
 const TEMPLATE_DEFAULT_RACE = '2026-10-30'
 
 export default function AddPlanModal({ profileId, replacePlanId, onClose }) {
-  const { dispatch } = useApp()
+  const { dispatch, state } = useApp()
+
+  // Calculate how many weeks to preserve: all weeks that started before today
+  const oldPlan = replacePlanId ? state.plans.find((p) => p.id === replacePlanId) : null
+  const currentWeekInOldPlan = oldPlan ? getCurrentWeek(oldPlan.weeks) : null
+  const autoPreserveWeeks = currentWeekInOldPlan
+    ? Math.max(0, currentWeekInOldPlan.week - 1)
+    : 0
+
   const [mode, setMode] = useState('template') // 'template' | 'template_v2' | 'custom'
   const [name, setName] = useState('תוכנית 20 שבועות — 10 ק"מ')
   const [startDate, setStartDate] = useState(TEMPLATE_DEFAULT_START)
   const [raceDate, setRaceDate] = useState(TEMPLATE_DEFAULT_RACE)
   const [raceLabel, setRaceLabel] = useState('מרוץ 10 ק"מ')
-  const [preserveWeeks, setPreserveWeeks] = useState(replacePlanId ? true : false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -77,7 +84,7 @@ export default function AddPlanModal({ profileId, replacePlanId, onClose }) {
         type: 'REPLACE_PLAN',
         oldPlanId: replacePlanId,
         newPlan,
-        preserveWeeks: preserveWeeks ? 3 : 0,
+        preserveWeeks: autoPreserveWeeks,
       })
     } else {
       dispatch({ type: 'ADD_PLAN', plan: newPlan })
@@ -157,27 +164,29 @@ export default function AddPlanModal({ profileId, replacePlanId, onClose }) {
             </div>
           </div>
 
-          {/* Preserve weeks option (only when replacing) */}
+          {/* Preserve weeks info (only when replacing) */}
           {replacePlanId && (
-            <button
-              type="button"
-              onClick={() => setPreserveWeeks((v) => !v)}
-              className={`w-full flex items-center gap-3 p-4 rounded-xl border-2 text-right transition-all
-                ${preserveWeeks ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-gray-300'}`}
-            >
-              <div className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 border-2 transition-all
-                ${preserveWeeks ? 'bg-green-500 border-green-500' : 'border-gray-300'}`}>
-                {preserveWeeks && (
-                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                  </svg>
+            <div className={`flex items-start gap-3 p-4 rounded-xl border-2 text-right
+              ${autoPreserveWeeks > 0 ? 'border-green-300 bg-green-50' : 'border-amber-200 bg-amber-50'}`}>
+              <span className="text-xl flex-shrink-0 mt-0.5">{autoPreserveWeeks > 0 ? '✅' : '⚠️'}</span>
+              <div>
+                {autoPreserveWeeks > 0 ? (
+                  <>
+                    <div className="font-semibold text-sm text-green-800">
+                      שומר אוטומטית שבועות 1–{autoPreserveWeeks}
+                    </div>
+                    <div className="text-xs text-green-700 mt-0.5">
+                      כל הלוגים עד השבוע הנוכחי (שבוע {autoPreserveWeeks + 1}) יועברו לתוכנית החדשה ולא יימחקו
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="font-semibold text-sm text-amber-800">התוכנית עוד לא התחילה</div>
+                    <div className="text-xs text-amber-700 mt-0.5">אין לוגים לשמור — התוכנית תוחלף במלואה</div>
+                  </>
                 )}
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-semibold text-sm text-gray-900">שמור שבועות 1–3 שכבר עשית</div>
-                <div className="text-xs text-gray-500 mt-0.5">הלוגים של שבועות 1–3 יועברו לתוכנית החדשה ולא יימחקו</div>
-              </div>
-            </button>
+            </div>
           )}
 
           {/* Template info */}
