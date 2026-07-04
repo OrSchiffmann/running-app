@@ -458,22 +458,22 @@ export const trainingPlanV2 = [
   {
     week: 1, startDate: '2026-06-14', endDate: '2026-06-20', isRecovery: false,
     workouts: [
-      { id: 'v2-w1-a', label: 'אימון א׳', description: '4×(8 דק׳ ריצה + 2 דק׳ הליכה)', targetDuration: 40, type: 'intervals' },
-      { id: 'v2-w1-b', label: 'אימון ב׳', description: '4×(8 דק׳ ריצה + 2 דק׳ הליכה)', targetDuration: 40, type: 'intervals' },
+      { id: 'w1-a', label: 'אימון א׳', description: '4×(8 דק׳ ריצה + 2 דק׳ הליכה)', targetDuration: 40, type: 'intervals' },
+      { id: 'w1-b', label: 'אימון ב׳', description: '4×(8 דק׳ ריצה + 2 דק׳ הליכה)', targetDuration: 40, type: 'intervals' },
     ],
   },
   {
     week: 2, startDate: '2026-06-21', endDate: '2026-06-27', isRecovery: false,
     workouts: [
-      { id: 'v2-w2-a', label: 'אימון א׳', description: '4×(8 דק׳ ריצה + 1 דק׳ הליכה)', targetDuration: 36, type: 'intervals' },
-      { id: 'v2-w2-b', label: 'אימון ב׳', description: '4×(8 דק׳ ריצה + 1 דק׳ הליכה)', targetDuration: 36, type: 'intervals' },
+      { id: 'w2-a', label: 'אימון א׳', description: '4×(8 דק׳ ריצה + 1 דק׳ הליכה)', targetDuration: 36, type: 'intervals' },
+      { id: 'w2-b', label: 'אימון ב׳', description: '4×(8 דק׳ ריצה + 1 דק׳ הליכה)', targetDuration: 36, type: 'intervals' },
     ],
   },
   {
     week: 3, startDate: '2026-06-28', endDate: '2026-07-04', isRecovery: false,
     workouts: [
-      { id: 'v2-w3-a', label: 'אימון א׳', description: '50 דק׳ ריצה רציפה בקצב קל', targetDuration: 50, type: 'easy' },
-      { id: 'v2-w3-b', label: 'אימון ב׳', description: '50 דק׳ ריצה רציפה בקצב קל', targetDuration: 50, type: 'easy' },
+      { id: 'w3-a', label: 'אימון א׳', description: '50 דק׳ ריצה רציפה בקצב קל', targetDuration: 50, type: 'easy' },
+      { id: 'w3-b', label: 'אימון ב׳', description: '50 דק׳ ריצה רציפה בקצב קל', targetDuration: 50, type: 'easy' },
     ],
   },
 
