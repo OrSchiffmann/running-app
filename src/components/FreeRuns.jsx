@@ -1,9 +1,10 @@
 import React, { useState } from 'react'
 import { useApp, useCurrentProfile } from '../context/AppContext'
 import FreeRunModal from './FreeRunModal'
+import AssignToWorkoutModal from './AssignToWorkoutModal'
 import { formatDuration, toHours } from '../utils/format'
 
-function RunCard({ run, profiles, onClick }) {
+function RunCard({ run, profiles, onClick, onAssign }) {
   const profile = profiles.find((p) => p.id === run.profileId)
   const date = new Date(run.date).toLocaleDateString('he-IL', {
     weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
@@ -77,6 +78,15 @@ function RunCard({ run, profiles, onClick }) {
               )}
             </div>
           )}
+          <button
+            onClick={(e) => { e.stopPropagation(); onAssign(run) }}
+            className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition-colors"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+            </svg>
+            שייך לאימון בתכנית
+          </button>
         </div>
       </div>
     </div>
@@ -89,6 +99,7 @@ export default function FreeRuns() {
   const [showModal, setShowModal] = useState(false)
   const [editRun, setEditRun] = useState(null)
   const [filterProfile, setFilterProfile] = useState('all')
+  const [assignRun, setAssignRun] = useState(null)
 
   const allRuns = [...state.freeRuns].sort((a, b) => new Date(b.date) - new Date(a.date))
   const filtered = filterProfile === 'all'
@@ -182,6 +193,7 @@ export default function FreeRuns() {
               run={run}
               profiles={state.profiles}
               onClick={(r) => { setEditRun(r); setShowModal(true) }}
+              onAssign={(r) => setAssignRun(r)}
             />
           ))}
         </div>
@@ -191,6 +203,13 @@ export default function FreeRuns() {
         <FreeRunModal
           existing={editRun}
           onClose={() => { setShowModal(false); setEditRun(null) }}
+        />
+      )}
+
+      {assignRun && (
+        <AssignToWorkoutModal
+          run={assignRun}
+          onClose={() => setAssignRun(null)}
         />
       )}
     </div>
