@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useApp } from '../context/AppContext'
-import { generateWeeksFromTemplate, generateEmptyWeeks, trainingPlan } from '../data/trainingPlan'
+import { generateWeeksFromTemplate, generateWeeksFromTemplateV2, generateEmptyWeeks, trainingPlan, trainingPlanV2 } from '../data/trainingPlan'
 import { generateId } from '../utils/storage'
 
 const TEMPLATE_DEFAULT_START = '2026-06-14'
@@ -8,7 +8,7 @@ const TEMPLATE_DEFAULT_RACE = '2026-10-30'
 
 export default function AddPlanModal({ profileId, replacePlanId, onClose }) {
   const { dispatch } = useApp()
-  const [mode, setMode] = useState('template') // 'template' | 'custom'
+  const [mode, setMode] = useState('template') // 'template' | 'template_v2' | 'custom'
   const [name, setName] = useState('תוכנית 20 שבועות — 10 ק"מ')
   const [startDate, setStartDate] = useState(TEMPLATE_DEFAULT_START)
   const [raceDate, setRaceDate] = useState(TEMPLATE_DEFAULT_RACE)
@@ -23,6 +23,11 @@ export default function AddPlanModal({ profileId, replacePlanId, onClose }) {
     setMode(m)
     if (m === 'template') {
       setName('תוכנית 20 שבועות — 10 ק"מ')
+      setStartDate(TEMPLATE_DEFAULT_START)
+      setRaceDate(TEMPLATE_DEFAULT_RACE)
+      setRaceLabel('מרוץ 10 ק"מ')
+    } else if (m === 'template_v2') {
+      setName('תוכנית מעודכנת — 5% בשבוע, ידידותית לברך')
       setStartDate(TEMPLATE_DEFAULT_START)
       setRaceDate(TEMPLATE_DEFAULT_RACE)
       setRaceLabel('מרוץ 10 ק"מ')
@@ -52,6 +57,8 @@ export default function AddPlanModal({ profileId, replacePlanId, onClose }) {
 
     const weeks = mode === 'template'
       ? generateWeeksFromTemplate(startDate)
+      : mode === 'template_v2'
+      ? generateWeeksFromTemplateV2(startDate)
       : generateEmptyWeeks(startDate, raceDate)
 
     const newPlan = {
@@ -80,6 +87,8 @@ export default function AddPlanModal({ profileId, replacePlanId, onClose }) {
 
   const numWeeks = mode === 'template'
     ? trainingPlan.length
+    : mode === 'template_v2'
+    ? trainingPlanV2.length
     : Math.max(1, Math.ceil((new Date(raceDate) - new Date(startDate)) / (7 * 24 * 60 * 60 * 1000)))
 
   return (
@@ -99,16 +108,36 @@ export default function AddPlanModal({ profileId, replacePlanId, onClose }) {
           {/* Mode selector */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">סוג תוכנית</label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2">
+              <button
+                type="button"
+                onClick={() => handleModeChange('template_v2')}
+                className={`p-4 rounded-xl border-2 text-right transition-all
+                  ${mode === 'template_v2' ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 hover:border-gray-300'}`}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">🦵</span>
+                  <div className="flex-1">
+                    <div className="font-bold text-sm text-gray-900">תוכנית מעודכנת — 5% בשבוע</div>
+                    <div className="text-xs text-gray-500 mt-0.5">מ-50 דק׳ בשבוע 4 • ריצות איכות שטוחות מ-60 דק׳ • ידידותית לברך</div>
+                  </div>
+                  {mode === 'template_v2' && <span className="text-indigo-500 text-lg">✓</span>}
+                </div>
+              </button>
               <button
                 type="button"
                 onClick={() => handleModeChange('template')}
                 className={`p-4 rounded-xl border-2 text-right transition-all
                   ${mode === 'template' ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 hover:border-gray-300'}`}
               >
-                <div className="text-2xl mb-1">📋</div>
-                <div className="font-bold text-sm text-gray-900">תבנית מוכנה</div>
-                <div className="text-xs text-gray-500 mt-0.5">20 שבועות — 10 ק"מ</div>
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">📋</span>
+                  <div className="flex-1">
+                    <div className="font-bold text-sm text-gray-900">תוכנית מקורית</div>
+                    <div className="text-xs text-gray-500 mt-0.5">20 שבועות קלאסי — 10 ק"מ</div>
+                  </div>
+                  {mode === 'template' && <span className="text-indigo-500 text-lg">✓</span>}
+                </div>
               </button>
               <button
                 type="button"
@@ -116,9 +145,14 @@ export default function AddPlanModal({ profileId, replacePlanId, onClose }) {
                 className={`p-4 rounded-xl border-2 text-right transition-all
                   ${mode === 'custom' ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 hover:border-gray-300'}`}
               >
-                <div className="text-2xl mb-1">✏️</div>
-                <div className="font-bold text-sm text-gray-900">תוכנית ריקה</div>
-                <div className="text-xs text-gray-500 mt-0.5">בנה תוכנית אישית</div>
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">✏️</span>
+                  <div className="flex-1">
+                    <div className="font-bold text-sm text-gray-900">תוכנית ריקה</div>
+                    <div className="text-xs text-gray-500 mt-0.5">בנה תוכנית אישית</div>
+                  </div>
+                  {mode === 'custom' && <span className="text-indigo-500 text-lg">✓</span>}
+                </div>
               </button>
             </div>
           </div>
@@ -147,6 +181,18 @@ export default function AddPlanModal({ profileId, replacePlanId, onClose }) {
           )}
 
           {/* Template info */}
+          {mode === 'template_v2' && (
+            <div className="bg-indigo-50 rounded-xl p-3 text-sm text-indigo-800 border border-indigo-100">
+              <p className="font-semibold mb-1">תוכנית מעודכנת — 20 שבועות:</p>
+              <ul className="space-y-0.5 text-xs text-indigo-700">
+                <li>• שבועות 1–3: אינטרוולים + ריצה רציפה (כמו התוכנית המקורית)</li>
+                <li>• שבועות 4–8: עלייה של 5%/שבוע, ריצות קלות (50→59 דק׳)</li>
+                <li>• שבועות 9–17: ריצת איכות שטוחה + ריצה ארוכה (עד 83 דק׳)</li>
+                <li>• שבועות 18–20: הורדת עומס + שבוע מרוץ</li>
+              </ul>
+              <p className="text-xs text-indigo-500 mt-2">כל ריצות האיכות הן על שטח שטוח בלבד — ללא עליות/ירידות</p>
+            </div>
+          )}
           {mode === 'template' && (
             <div className="bg-indigo-50 rounded-xl p-3 text-sm text-indigo-800 border border-indigo-100">
               <p className="font-semibold mb-1">תוכנית 20 שבועות מוכנה:</p>
