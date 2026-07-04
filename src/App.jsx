@@ -8,6 +8,7 @@ import Dashboard from './components/Dashboard'
 import TrainingPlan from './components/TrainingPlan'
 import FreeRuns from './components/FreeRuns'
 import Progress from './components/Progress'
+import StrengthPage from './components/StrengthPage'
 
 function SyncErrorBanner() {
   const { syncError } = useApp()
@@ -59,10 +60,11 @@ function AppShell() {
       <Navbar activeTab={activeTab} setActiveTab={setActiveTab} onSignOut={signOut} />
       <main className="pt-14 pb-20 max-w-2xl mx-auto px-4">
         <div className="py-4">
-          {activeTab === 'dashboard' && <Dashboard setActiveTab={setActiveTab} />}
-          {activeTab === 'plan'      && <TrainingPlan />}
-          {activeTab === 'freeruns'  && <FreeRuns />}
-          {activeTab === 'progress'  && <Progress />}
+          {activeTab === 'dashboard' && <Dashboard key={profile?.id} setActiveTab={setActiveTab} />}
+          {activeTab === 'plan'      && <TrainingPlan key={profile?.id} />}
+          {activeTab === 'freeruns'  && <FreeRuns key={profile?.id} />}
+          {activeTab === 'progress'  && <Progress key={profile?.id} />}
+          {activeTab === 'strength'  && <StrengthPage />}
         </div>
       </main>
     </div>

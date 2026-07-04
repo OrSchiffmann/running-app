@@ -13,6 +13,7 @@ export default function AddPlanModal({ profileId, replacePlanId, onClose }) {
   const [startDate, setStartDate] = useState(TEMPLATE_DEFAULT_START)
   const [raceDate, setRaceDate] = useState(TEMPLATE_DEFAULT_RACE)
   const [raceLabel, setRaceLabel] = useState('מרוץ 10 ק"מ')
+  const [preserveWeeks, setPreserveWeeks] = useState(replacePlanId ? true : false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -53,22 +54,27 @@ export default function AddPlanModal({ profileId, replacePlanId, onClose }) {
       ? generateWeeksFromTemplate(startDate)
       : generateEmptyWeeks(startDate, raceDate)
 
-    if (replacePlanId) {
-      dispatch({ type: 'DELETE_PLAN', id: replacePlanId })
+    const newPlan = {
+      id: generateId(),
+      createdAt: new Date().toISOString(),
+      profileId,
+      name: name.trim(),
+      raceDate,
+      raceLabel: raceLabel.trim() || 'מרוץ',
+      startDate,
+      weeks,
     }
-    dispatch({
-      type: 'ADD_PLAN',
-      plan: {
-        id: generateId(),
-        createdAt: new Date().toISOString(),
-        profileId,
-        name: name.trim(),
-        raceDate,
-        raceLabel: raceLabel.trim() || 'מרוץ',
-        startDate,
-        weeks,
-      },
-    })
+
+    if (replacePlanId) {
+      dispatch({
+        type: 'REPLACE_PLAN',
+        oldPlanId: replacePlanId,
+        newPlan,
+        preserveWeeks: preserveWeeks ? 3 : 0,
+      })
+    } else {
+      dispatch({ type: 'ADD_PLAN', plan: newPlan })
+    }
     onClose()
   }
 
@@ -116,6 +122,29 @@ export default function AddPlanModal({ profileId, replacePlanId, onClose }) {
               </button>
             </div>
           </div>
+
+          {/* Preserve weeks option (only when replacing) */}
+          {replacePlanId && (
+            <button
+              type="button"
+              onClick={() => setPreserveWeeks((v) => !v)}
+              className={`w-full flex items-center gap-3 p-4 rounded-xl border-2 text-right transition-all
+                ${preserveWeeks ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-gray-300'}`}
+            >
+              <div className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 border-2 transition-all
+                ${preserveWeeks ? 'bg-green-500 border-green-500' : 'border-gray-300'}`}>
+                {preserveWeeks && (
+                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-sm text-gray-900">שמור שבועות 1–3 שכבר עשית</div>
+                <div className="text-xs text-gray-500 mt-0.5">הלוגים של שבועות 1–3 יועברו לתוכנית החדשה ולא יימחקו</div>
+              </div>
+            </button>
+          )}
 
           {/* Template info */}
           {mode === 'template' && (

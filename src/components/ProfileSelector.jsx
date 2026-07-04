@@ -3,6 +3,12 @@ import { useApp } from '../context/AppContext'
 import { generateId } from '../utils/storage'
 import AddProfileModal from './AddProfileModal'
 
+function daysUntil(dateStr) {
+  if (!dateStr) return null
+  const diff = new Date(dateStr) - new Date()
+  return Math.ceil(diff / (1000 * 60 * 60 * 24))
+}
+
 export default function ProfileSelector() {
   const { state, dispatch } = useApp()
   const [showAdd, setShowAdd] = useState(false)
@@ -17,13 +23,16 @@ export default function ProfileSelector() {
         <div className="text-center mb-8">
           <div className="text-5xl mb-3">🏃</div>
           <h1 className="text-3xl font-extrabold text-gray-900">תכנית ריצה 2026</h1>
-          <p className="text-gray-500 mt-2 text-sm">מרוץ ה-10 קמ — 30 באוקטובר</p>
+          <p className="text-gray-500 mt-2 text-sm">בחרי פרופיל כדי להתחיל</p>
         </div>
 
         <p className="text-center text-gray-600 font-semibold mb-4">בחר/י פרופיל</p>
 
         <div className="space-y-3">
-          {state.profiles.map((profile) => (
+          {state.profiles.map((profile) => {
+            const plan = state.plans.find((p) => p.profileId === profile.id)
+            const days = plan ? daysUntil(plan.raceDate) : null
+            return (
             <button
               key={profile.id}
               onClick={() => select(profile.id)}
@@ -39,19 +48,30 @@ export default function ProfileSelector() {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="font-bold text-gray-900 text-lg">{profile.name}</div>
-                {profile.isStravaUser && (
-                  <div className="flex items-center gap-1.5 mt-0.5">
+                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                  {profile.isStravaUser && (
                     <span className="text-[10px] font-bold text-white bg-orange-500 px-2 py-0.5 rounded-full">
                       STRAVA
                     </span>
-                  </div>
-                )}
+                  )}
+                  {plan && days !== null && days > 0 && (
+                    <span className="text-xs text-indigo-600 font-semibold">
+                      🏁 {plan.raceLabel} — עוד {days} ימים
+                    </span>
+                  )}
+                  {plan && days !== null && days <= 0 && (
+                    <span className="text-xs text-green-600 font-semibold">🏅 יום המרוץ הגיע!</span>
+                  )}
+                  {!plan && (
+                    <span className="text-xs text-gray-400">אין תוכנית</span>
+                  )}
+                </div>
               </div>
               <svg className="w-5 h-5 text-gray-400 flex-shrink-0 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </button>
-          ))}
+          )})}
 
           <button
             onClick={() => setShowAdd(true)}

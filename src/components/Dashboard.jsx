@@ -21,6 +21,7 @@ function Countdown({ raceDate, raceLabel }) {
   }
 
   useEffect(() => {
+    setTimeLeft(calcTimeLeft())
     const t = setInterval(() => setTimeLeft(calcTimeLeft()), 60000)
     return () => clearInterval(t)
   }, [raceDate])
@@ -154,7 +155,9 @@ export default function Dashboard({ setActiveTab }) {
 
   const planLogs = plan ? state.workoutLogs.filter((l) => l.planId === plan.id) : []
   const freeRunLogs = state.freeRuns.filter((r) => r.profileId === profile?.id)
-  const allLogs = [...planLogs, ...freeRunLogs]
+  const planStravaIds = new Set(planLogs.map((l) => l.stravaId).filter(Boolean))
+  const dedupedFreeRuns = freeRunLogs.filter((r) => !r.stravaId || !planStravaIds.has(r.stravaId))
+  const allLogs = [...planLogs, ...dedupedFreeRuns]
 
   const totalCompleted = planLogs.length
   const totalDistance = allLogs.reduce((s, l) => s + (l.distance || 0), 0)

@@ -133,15 +133,112 @@ function PersonalBests({ logs }) {
   )
 }
 
+function ActivityLog({ planLogs, dedupedFreeRuns, plan, dispatch }) {
+  const [confirmId, setConfirmId] = useState(null)
+
+  function deleteLog(entry) {
+    if (entry._type === 'plan') {
+      dispatch({ type: 'DELETE_WORKOUT_LOG', id: entry.id })
+    } else {
+      dispatch({ type: 'DELETE_FREE_RUN', id: entry.id })
+    }
+    setConfirmId(null)
+  }
+
+  // Find workout label from plan
+  function workoutLabel(log) {
+    if (!plan) return null
+    for (const week of plan.weeks) {
+      const wo = week.workouts.find((w) => w.id === log.workoutId)
+      if (wo) return `שבוע ${week.week} — ${wo.label}`
+    }
+    return null
+  }
+
+  const all = [
+    ...planLogs.map((l) => ({ ...l, _type: 'plan' })),
+    ...dedupedFreeRuns.map((r) => ({ ...r, _type: 'free' })),
+  ].sort((a, b) => (b.date || '').localeCompare(a.date || ''))
+
+  if (!all.length) return (
+    <div className="text-sm text-gray-400 text-center py-4">אין אימונים להצגה</div>
+  )
+
+  return (
+    <div className="space-y-2">
+      {all.map((entry) => {
+        const isConfirming = confirmId === entry.id
+        const label = entry._type === 'plan' ? workoutLabel(entry) : 'ריצה חופשית'
+        const dateStr = entry.date
+          ? new Date(entry.date).toLocaleDateString('he-IL', { day: 'numeric', month: 'short', year: '2-digit' })
+          : '—'
+        return (
+          <div key={entry.id} className={`flex items-center gap-3 p-3 rounded-xl border text-sm transition-colors
+            ${isConfirming ? 'border-red-300 bg-red-50' : 'border-gray-100 bg-gray-50'}`}>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                  entry._type === 'plan' ? 'bg-indigo-100 text-indigo-700' : 'bg-teal-100 text-teal-700'
+                }`}>
+                  {entry._type === 'plan' ? 'תכנית' : 'חופשי'}
+                </span>
+                {entry.stravaId && (
+                  <span className="text-[10px] font-semibold bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded-full">Strava</span>
+                )}
+                <span className="text-gray-400 text-xs">{dateStr}</span>
+              </div>
+              <div className="text-gray-800 font-medium mt-0.5 truncate">{label || '—'}</div>
+              <div className="flex gap-3 text-xs text-gray-500 mt-0.5">
+                {entry.distance > 0 && <span>{entry.distance} ק"מ</span>}
+                {entry.duration > 0 && <span>{formatDuration(entry.duration)}</span>}
+              </div>
+            </div>
+            {isConfirming ? (
+              <div className="flex gap-2 flex-shrink-0">
+                <button
+                  onClick={() => deleteLog(entry)}
+                  className="text-xs font-bold text-white bg-red-500 px-3 py-1.5 rounded-lg hover:bg-red-600"
+                >
+                  מחק
+                </button>
+                <button
+                  onClick={() => setConfirmId(null)}
+                  className="text-xs text-gray-500 px-2 py-1.5 rounded-lg hover:bg-gray-200"
+                >
+                  ביטול
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setConfirmId(entry.id)}
+                className="flex-shrink-0 text-gray-300 hover:text-red-400 transition-colors p-1"
+                title="מחק"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export default function Progress() {
-  const { state } = useApp()
+  const { state, dispatch } = useApp()
   const profile = useCurrentProfile()
   const plan = useProfilePlan(profile?.id)
   const [showAllWeeks, setShowAllWeeks] = useState(false)
+  const [showActivityLog, setShowActivityLog] = useState(false)
 
   const planLogs = plan ? state.workoutLogs.filter((l) => l.planId === plan.id) : []
   const freeRunLogs = state.freeRuns.filter((r) => r.profileId === profile?.id)
-  const allActivityLogs = [...planLogs, ...freeRunLogs]
+  const planStravaIds = new Set(planLogs.map((l) => l.stravaId).filter(Boolean))
+  const dedupedFreeRuns = freeRunLogs.filter((r) => !r.stravaId || !planStravaIds.has(r.stravaId))
+  const allActivityLogs = [...planLogs, ...dedupedFreeRuns]
 
   const totalCompleted = planLogs.length
   const totalWorkouts = plan ? plan.weeks.reduce((s, w) => s + w.workouts.length, 0) : 0
@@ -229,6 +326,37 @@ export default function Progress() {
 
       {/* Workout type breakdown */}
       <WorkoutTypeBreakdown logs={planLogs} plan={plan} />
+
+      {/* Activity log with delete */}
+      <div className="card">
+        <button
+          onClick={() => setShowActivityLog((s) => !s)}
+          className="w-full flex items-center justify-between"
+        >
+          <div>
+            <h3 className="font-bold text-gray-900 text-right">פירוט אימונים</h3>
+            <p className="text-xs text-gray-400 text-right mt-0.5">
+              {[...planLogs, ...dedupedFreeRuns].length} רשומות — לחצי להצגה ומחיקה
+            </p>
+          </div>
+          <svg
+            className={`w-5 h-5 text-gray-400 transition-transform ${showActivityLog ? 'rotate-180' : ''}`}
+            fill="none" stroke="currentColor" viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+        {showActivityLog && (
+          <div className="mt-3 pt-3 border-t border-gray-100">
+            <ActivityLog
+              planLogs={planLogs}
+              dedupedFreeRuns={dedupedFreeRuns}
+              plan={plan}
+              dispatch={dispatch}
+            />
+          </div>
+        )}
+      </div>
 
       {/* Weekly table */}
       <div className="card">

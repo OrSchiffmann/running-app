@@ -136,6 +136,22 @@ function reducer(state, action) {
         workoutLogs: state.workoutLogs.filter((l) => l.planId !== action.id),
       }
 
+    case 'REPLACE_PLAN': {
+      const { oldPlanId, newPlan, preserveWeeks = 0 } = action
+      const migratedIds = new Set(
+        state.workoutLogs
+          .filter((l) => l.planId === oldPlanId && l.weekNum <= preserveWeeks)
+          .map((l) => l.id)
+      )
+      return {
+        ...state,
+        plans: [...state.plans.filter((p) => p.id !== oldPlanId), newPlan],
+        workoutLogs: state.workoutLogs
+          .filter((l) => l.planId !== oldPlanId || migratedIds.has(l.id))
+          .map((l) => migratedIds.has(l.id) ? { ...l, planId: newPlan.id } : l),
+      }
+    }
+
     case 'LOG_WORKOUT': {
       const idx = state.workoutLogs.findIndex(
         (l) => l.planId === action.log.planId &&
@@ -242,6 +258,32 @@ async function syncToSupabase(action, userId, state) {
     case 'DELETE_PLAN':
       throwIfError(await supabase.from('plans').delete().eq('id', action.id))
       break
+
+    case 'REPLACE_PLAN': {
+      const { oldPlanId, newPlan, preserveWeeks = 0 } = action
+      const { data: oldLogs } = await supabase
+        .from('workout_logs').select('id, week_num').eq('plan_id', oldPlanId)
+      const toMigrate = (oldLogs || []).filter((l) => l.week_num <= preserveWeeks)
+      const toDelete = (oldLogs || []).filter((l) => l.week_num > preserveWeeks)
+      if (toDelete.length) {
+        throwIfError(await supabase.from('workout_logs').delete().in('id', toDelete.map((l) => l.id)))
+      }
+      for (const log of toMigrate) {
+        throwIfError(await supabase.from('workout_logs').update({ plan_id: newPlan.id }).eq('id', log.id))
+      }
+      throwIfError(await supabase.from('plans').delete().eq('id', oldPlanId))
+      throwIfError(await supabase.from('plans').insert({
+        id: newPlan.id,
+        user_id: userId,
+        profile_id: newPlan.profileId,
+        name: newPlan.name,
+        race_date: newPlan.raceDate,
+        race_label: newPlan.raceLabel,
+        start_date: newPlan.startDate,
+        weeks: newPlan.weeks,
+      }))
+      break
+    }
 
     case 'LOG_WORKOUT': {
       const log = action.log
