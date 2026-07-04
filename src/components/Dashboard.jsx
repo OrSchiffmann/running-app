@@ -5,6 +5,7 @@ import { formatDuration, toHours } from '../utils/format'
 import WorkoutLogModal from './WorkoutLogModal'
 import StravaSync from './StravaSync'
 import AddPlanModal from './AddPlanModal'
+import AssignToWorkoutModal from './AssignToWorkoutModal'
 
 const STAT_CONFIG = {
   workouts: { title: 'אימונים', filter: (l) => true },
@@ -12,8 +13,9 @@ const STAT_CONFIG = {
   duration: { title: 'זמן', filter: (l) => l.duration > 0 },
 }
 
-function StatsDetailModal({ logs, plan, statKey, dispatch, onClose }) {
+function StatsDetailModal({ logs, plan, statKey, dispatch, profileId, onClose }) {
   const [confirmId, setConfirmId] = useState(null)
+  const [reassignEntry, setReassignEntry] = useState(null)
   const config = STAT_CONFIG[statKey]
   const filtered = logs.filter(config.filter)
     .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
@@ -93,18 +95,34 @@ function StatsDetailModal({ logs, plan, statKey, dispatch, onClose }) {
                     <button onClick={() => setConfirmId(null)} className="text-xs text-gray-500 px-2 py-1.5 rounded-lg hover:bg-gray-200">ביטול</button>
                   </div>
                 ) : (
-                  <button onClick={() => setConfirmId(entry.id)} className="flex-shrink-0 text-gray-300 hover:text-red-400 p-1">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
+                  <div className="flex gap-1 flex-shrink-0">
+                    {entry._type === 'plan' && (
+                      <button onClick={() => setReassignEntry(entry)} className="text-gray-300 hover:text-indigo-500 p-1" title="שנה שיוך">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                        </svg>
+                      </button>
+                    )}
+                    <button onClick={() => setConfirmId(entry.id)} className="text-gray-300 hover:text-red-400 p-1" title="מחק">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
                 )}
               </div>
             )
           })}
         </div>
       </div>
+      {reassignEntry && (
+        <AssignToWorkoutModal
+          workoutLog={reassignEntry}
+          profileId={profileId}
+          onClose={() => setReassignEntry(null)}
+        />
+      )}
     </div>
   )
 }
@@ -391,6 +409,7 @@ export default function Dashboard({ setActiveTab }) {
           plan={plan}
           statKey={statDetail}
           dispatch={dispatch}
+          profileId={profile?.id}
           onClose={() => setStatDetail(null)}
         />
       )}

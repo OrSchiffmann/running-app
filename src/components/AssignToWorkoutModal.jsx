@@ -1,15 +1,32 @@
 import React, { useState } from 'react'
-import { useApp, useCurrentProfile } from '../context/AppContext'
-import { useProfilePlan } from '../context/AppContext'
+import { useApp, useProfilePlan } from '../context/AppContext'
 import { formatDuration } from '../utils/format'
 import { generateId } from '../utils/storage'
 
-export default function AssignToWorkoutModal({ run, onClose }) {
+/**
+ * Used for two cases:
+ *  - mode='free_run': move a free run into a plan workout slot
+ *  - mode='workout_log': reassign an existing workout log to a different slot
+ */
+export default function AssignToWorkoutModal({ run, workoutLog, profileId, onClose }) {
   const { state, dispatch } = useApp()
-  const profile = useCurrentProfile()
-  const plan = useProfilePlan(run.profileId)
-  const [selected, setSelected] = useState(null) // { weekNum, workoutId, weekLabel, workoutLabel }
+  const mode = workoutLog ? 'workout_log' : 'free_run'
+  const resolvedProfileId = profileId || run?.profileId || workoutLog?.profileId
+  const plan = useProfilePlan(resolvedProfileId)
+  const [selected, setSelected] = useState(null)
   const [saving, setSaving] = useState(false)
+
+  const entry = workoutLog || run
+  const entryDate = entry?.date
+  const entryTitle = workoutLog
+    ? (() => {
+        for (const week of (plan?.weeks ?? [])) {
+          const wo = week.workouts.find((w) => w.id === workoutLog.workoutId)
+          if (wo) return `שבוע ${week.week} — ${wo.label}`
+        }
+        return 'אימון מתכנית'
+      })()
+    : (run?.title || 'ריצה חופשית')
 
   if (!plan) {
     return (
@@ -23,10 +40,10 @@ export default function AssignToWorkoutModal({ run, onClose }) {
     )
   }
 
-  // Build flat list of all workouts, mark which are already logged
+  // Build flat list, mark logged slots (excluding current log being moved)
   const loggedKeys = new Set(
     state.workoutLogs
-      .filter((l) => l.planId === plan.id)
+      .filter((l) => l.planId === plan.id && l.id !== workoutLog?.id)
       .map((l) => `${l.weekNum}-${l.workoutId}`)
   )
 
@@ -38,40 +55,50 @@ export default function AssignToWorkoutModal({ run, onClose }) {
       workoutLabel: wo.label,
       description: wo.description,
       isLogged: loggedKeys.has(`${week.week}-${wo.id}`),
-      startDate: week.startDate,
+      isCurrent: workoutLog?.weekNum === week.week && workoutLog?.workoutId === wo.id,
     }))
   )
 
-  // Sort: unlogged first, then by week, show logged ones dimmed at bottom
   const sorted = [
-    ...options.filter((o) => !o.isLogged),
-    ...options.filter((o) => o.isLogged),
+    ...options.filter((o) => !o.isLogged && !o.isCurrent),
+    ...options.filter((o) => o.isCurrent),
+    ...options.filter((o) => o.isLogged && !o.isCurrent),
   ]
 
   function handleAssign() {
     if (!selected || saving) return
     setSaving(true)
 
-    const log = {
-      id: generateId(),
-      planId: plan.id,
-      profileId: run.profileId,
-      weekNum: selected.weekNum,
-      workoutId: selected.workoutId,
-      date: run.date,
-      duration: run.duration,
-      distance: run.distance,
-      pace: run.pace,
-      avgHeartRate: run.avgHeartRate,
-      kneeFeeling: run.kneeFeeling,
-      notes: run.notes,
-      stravaId: run.stravaId || null,
-      stravaName: run.title || null,
-      completedAt: new Date().toISOString(),
+    if (mode === 'free_run') {
+      dispatch({
+        type: 'LOG_WORKOUT',
+        log: {
+          id: generateId(),
+          planId: plan.id,
+          profileId: resolvedProfileId,
+          weekNum: selected.weekNum,
+          workoutId: selected.workoutId,
+          date: run.date,
+          duration: run.duration,
+          distance: run.distance,
+          pace: run.pace,
+          avgHeartRate: run.avgHeartRate,
+          kneeFeeling: run.kneeFeeling,
+          notes: run.notes,
+          stravaId: run.stravaId || null,
+          stravaName: run.title || null,
+          completedAt: new Date().toISOString(),
+        },
+      })
+      dispatch({ type: 'DELETE_FREE_RUN', id: run.id })
+    } else {
+      dispatch({
+        type: 'MOVE_WORKOUT_LOG',
+        id: workoutLog.id,
+        weekNum: selected.weekNum,
+        workoutId: selected.workoutId,
+      })
     }
-
-    dispatch({ type: 'LOG_WORKOUT', log })
-    dispatch({ type: 'DELETE_FREE_RUN', id: run.id })
     onClose()
   }
 
@@ -84,12 +111,14 @@ export default function AssignToWorkoutModal({ run, onClose }) {
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-4 border-b border-gray-100 flex-shrink-0">
           <div>
-            <h2 className="font-bold text-gray-900">שייך לאימון בתכנית</h2>
+            <h2 className="font-bold text-gray-900">
+              {mode === 'workout_log' ? 'שנה שיוך אימון' : 'שייך לאימון בתכנית'}
+            </h2>
             <p className="text-xs text-gray-400 mt-0.5">
-              {run.title || 'ריצה חופשית'} •{' '}
-              {run.date ? new Date(run.date).toLocaleDateString('he-IL', { day: 'numeric', month: 'short' }) : ''}
-              {run.distance ? ` • ${run.distance} ק"מ` : ''}
-              {run.duration ? ` • ${formatDuration(run.duration)}` : ''}
+              {entryTitle} •{' '}
+              {entryDate ? new Date(entryDate).toLocaleDateString('he-IL', { day: 'numeric', month: 'short' }) : ''}
+              {entry?.distance ? ` • ${entry.distance} ק"מ` : ''}
+              {entry?.duration ? ` • ${formatDuration(entry.duration)}` : ''}
             </p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1">
@@ -127,7 +156,10 @@ export default function AssignToWorkoutModal({ run, onClose }) {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-bold text-indigo-500">{opt.weekLabel}</span>
-                      {opt.isLogged && (
+                      {opt.isCurrent && (
+                        <span className="text-[10px] bg-blue-100 text-blue-700 font-semibold px-1.5 py-0.5 rounded-full">נוכחי</span>
+                      )}
+                      {opt.isLogged && !opt.isCurrent && (
                         <span className="text-[10px] bg-green-100 text-green-700 font-semibold px-1.5 py-0.5 rounded-full">כבר מתועד</span>
                       )}
                     </div>

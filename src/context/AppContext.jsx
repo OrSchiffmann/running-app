@@ -169,6 +169,14 @@ function reducer(state, action) {
     case 'DELETE_WORKOUT_LOG':
       return { ...state, workoutLogs: state.workoutLogs.filter((l) => l.id !== action.id) }
 
+    case 'MOVE_WORKOUT_LOG':
+      return {
+        ...state,
+        workoutLogs: state.workoutLogs.map((l) =>
+          l.id === action.id ? { ...l, weekNum: action.weekNum, workoutId: action.workoutId } : l
+        ),
+      }
+
     case 'ADD_FREE_RUN':
       return { ...state, freeRuns: [...state.freeRuns, { id: generateId(), ...action.run }] }
 
@@ -336,6 +344,13 @@ async function syncToSupabase(action, userId, state) {
 
     case 'DELETE_WORKOUT_LOG':
       throwIfError(await supabase.from('workout_logs').delete().eq('id', action.id))
+      break
+
+    case 'MOVE_WORKOUT_LOG':
+      throwIfError(await supabase.from('workout_logs').update({
+        week_num: action.weekNum,
+        workout_id: action.workoutId,
+      }).eq('id', action.id))
       break
 
     case 'ADD_FREE_RUN': {
